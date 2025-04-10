@@ -9,9 +9,11 @@ pandas>=1.5.3
 
 # Data source
 yfinance==0.2.37
+requests==2.31.0
 lxml==4.9.3
 html5lib==1.1
 beautifulsoup4==4.12.2
+multitasking==0.0.11
 
 # Visualization
 matplotlib==3.7.1
