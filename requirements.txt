@@ -1,6 +1,6 @@
-# Setup tools
-setuptools==69.1.1
-wheel==0.42.0
+# Build tools
+setuptools>=69.1.1
+wheel>=0.42.0
 
 # Core dependencies
 numpy==1.24.3
