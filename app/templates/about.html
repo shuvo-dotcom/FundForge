@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}About{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h1 class="card-title text-center mb-4">About FundForge</h1>
+                
+                <div class="mb-4">
+                    <h3>Our Mission</h3>
+                    <p>FundForge is a decentralized fundraising platform built on the Polygon blockchain. Our mission is to empower creators, entrepreneurs, and community projects by providing a transparent, secure, and efficient way to raise funds.</p>
+                </div>
+                
+                <div class="mb-4">
+                    <h3>Why Blockchain?</h3>
+                    <p>By leveraging blockchain technology, we ensure:</p>
+                    <ul>
+                        <li>Transparency in all transactions</li>
+                        <li>Security of funds through smart contracts</li>
+                        <li>Lower transaction fees compared to traditional platforms</li>
+                        <li>Global accessibility without borders</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-4">
+                    <h3>How It Works</h3>
+                    <ol>
+                        <li>Create a campaign with your funding goal and timeline</li>
+                        <li>Share your campaign with your community</li>
+                        <li>Receive donations in cryptocurrency</li>
+                        <li>Withdraw funds when your campaign ends</li>
+                    </ol>
+                </div>
+                
+                <div class="mb-4">
+                    <h3>Our Team</h3>
+                    <p>FundForge is built by a team of blockchain enthusiasts and developers who believe in the power of decentralized technology to create positive change in the world.</p>
+                </div>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('main.how_it_works') }}" class="btn btn-primary">Learn How It Works</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,9 @@
+# Portfolio Optimization Data
+
+# Parameters
+param q := 20;              # Number of stocks to select
+param min_weight := 0.01;   # Minimum weight per stock (1%)
+param max_weight := 0.10;   # Maximum weight per stock (10%)
+
+# The actual data will be populated by the Python script
+# This is just a template 

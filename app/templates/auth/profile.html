@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Profile Information</h4>
+            </div>
+            <div class="card-body">
+                <p><strong>Username:</strong> {{ current_user.username }}</p>
+                <p><strong>Email:</strong> {{ current_user.email }}</p>
+                <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%B %d, %Y') }}</p>
+                <p>
+                    <strong>Wallet Address:</strong>
+                    {% if current_user.wallet_address %}
+                        <span class="text-monospace">{{ current_user.wallet_address }}</span>
+                    {% else %}
+                        <span class="text-muted">Not connected</span>
+                    {% endif %}
+                </p>
+                {% if not current_user.wallet_address %}
+                    <button id="connectWallet" class="btn btn-primary">Connect Wallet</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">My Donations</h4>
+            </div>
+            <div class="card-body">
+                {% if current_user.donations.count() > 0 %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Campaign</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for donation in current_user.donations %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('campaign.view', id=donation.campaign.id) }}">
+                                                {{ donation.campaign.title }}
+                                            </a>
+                                        </td>
+                                        <td>${{ "%.2f"|format(donation.amount) }}</td>
+                                        <td>{{ donation.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if donation.status == 'completed' else 'warning' }}">
+                                                {{ donation.status }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">You haven't made any donations yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const connectWalletBtn = document.getElementById('connectWallet');
+    if (connectWalletBtn) {
+        connectWalletBtn.addEventListener('click', async function() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    // Request account access
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const account = accounts[0];
+                    
+                    // Send the wallet address to the server
+                    const response = await fetch('/auth/connect-wallet', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ wallet_address: account })
+                    });
+                    
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        alert('Failed to connect wallet. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error connecting wallet:', error);
+                    alert('Failed to connect wallet. Please try again.');
+                }
+            } else {
+                alert('Please install MetaMask to connect your wallet.');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %} 

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}How It Works{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h1 class="card-title text-center mb-4">How FundForge Works</h1>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="card-title">For Campaign Creators</h3>
+                                <ol>
+                                    <li>Create an account and connect your wallet</li>
+                                    <li>Set up your campaign with a clear goal and timeline</li>
+                                    <li>Share your campaign with your community</li>
+                                    <li>Receive donations in cryptocurrency</li>
+                                    <li>Withdraw funds when your campaign ends</li>
+                                </ol>
+                                {% if not current_user.is_authenticated %}
+                                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
+                                {% else %}
+                                    <a href="{{ url_for('campaign.create') }}" class="btn btn-primary">Create Campaign</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="card-title">For Donors</h3>
+                                <ol>
+                                    <li>Create an account and connect your wallet</li>
+                                    <li>Browse active campaigns</li>
+                                    <li>Choose a campaign to support</li>
+                                    <li>Make a donation using cryptocurrency</li>
+                                    <li>Track your donation history</li>
+                                </ol>
+                                {% if not current_user.is_authenticated %}
+                                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Join Now</a>
+                                {% else %}
+                                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">Browse Campaigns</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h3>Blockchain Technology</h3>
+                    <p>FundForge uses the Polygon blockchain to ensure:</p>
+                    <ul>
+                        <li>Secure and transparent transactions</li>
+                        <li>Low transaction fees</li>
+                        <li>Fast transaction processing</li>
+                        <li>Smart contract automation</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-4">
+                    <h3>Getting Started</h3>
+                    <p>To get started with FundForge, you'll need:</p>
+                    <ol>
+                        <li>A MetaMask wallet (or compatible Web3 wallet)</li>
+                        <li>Some MATIC tokens for transaction fees</li>
+                        <li>A clear project or cause to fund</li>
+                    </ol>
+                </div>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('main.about') }}" class="btn btn-outline-primary">Learn More About Us</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

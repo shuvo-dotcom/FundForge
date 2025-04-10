@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}S&P 100 Index Fund Analysis{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-4">S&P 100 Index Fund Analysis</h1>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Analysis Parameters</h5>
+                    <form id="analysisForm" method="POST" action="{{ url_for('index_fund.analyze') }}">
+                        <div class="mb-3">
+                            <label for="q" class="form-label">Number of Stocks ({{ min_stocks }} - {{ max_stocks }})</label>
+                            <input type="number" class="form-control" id="q" name="q" 
+                                   min="{{ min_stocks }}" max="{{ max_stocks }}" 
+                                   value="{{ default_stocks }}" required>
+                            <div class="form-text">Select how many stocks to include in the analysis.</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="submitBtn">Analyze</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="text-center mt-4" style="display: none;">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5>Analyzing Data...</h5>
+                        <p class="text-muted">This may take a few moments</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('analysisForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+
+    form.addEventListener('submit', function(e) {
+        submitBtn.disabled = true;
+        loadingSpinner.style.display = 'block';
+        
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            function readStream() {
+                reader.read().then(({done, value}) => {
+                    if (done) return;
+                    
+                    const chunk = decoder.decode(value);
+                    const updates = chunk.split('\n').filter(line => line.trim());
+                    
+                    updates.forEach(update => {
+                        try {
+                            const data = JSON.parse(update);
+                            if (data.error) {
+                                currentStepElement.innerHTML = `<span class="text-danger">Error: ${data.message}</span>`;
+                                return;
+                            }
+                            
+                            // Update progress bar
+                            progressBar.style.width = `${data.progress}%`;
+                            progressBar.textContent = `${Math.round(data.progress)}%`;
+                            
+                            // Update current step message
+                            if (data.message) {
+                                currentStepElement.textContent = data.message;
+                            }
+                            
+                            // Update step indicators
+                            if (data.step) {
+                                steps.forEach(step => {
+                                    const stepName = step.dataset.step;
+                                    if (stepName === data.step) {
+                                        step.classList.add('active');
+                                        step.querySelector('i').className = 'fas fa-spinner fa-spin';
+                                    } else if (getStepOrder(stepName) < getStepOrder(data.step)) {
+                                        step.classList.remove('active');
+                                        step.classList.add('completed');
+                                        step.querySelector('i').className = 'fas fa-check-circle';
+                                    }
+                                });
+                            }
+                            
+                            // Handle redirect
+                            if (data.redirect) {
+                                setTimeout(() => {
+                                    window.location.href = data.redirect;
+                                }, 1000);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing update:', e);
+                        }
+                    });
+                    
+                    readStream();
+                });
+            }
+            
+            readStream();
+        })
+        .catch(error => {
+            currentStepElement.innerHTML = `<span class="text-danger">Error: ${error.message}</span>`;
+        });
+    });
+    
+    function getStepOrder(step) {
+        const order = {
+            'download': 1,
+            'analyze': 2,
+            'optimize': 3,
+            'plot': 4
+        };
+        return order[step] || 0;
+    }
+});
+</script>
+{% endblock %} 

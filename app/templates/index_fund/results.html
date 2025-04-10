@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-4">Portfolio Analysis Results</h1>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Selected Stocks and Weights</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Stock</th>
+                                    <th>Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stock, weight in selected_stocks.items() %}
+                                <tr>
+                                    <td>{{ stock }}</td>
+                                    <td>{{ "%.2f"|format(weight * 100) if not weight|string == 'nan' else '0.00' }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {% if plot_path %}
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Performance Comparison</h5>
+                    <img src="{{ url_for('static', filename=plot_path) }}" class="img-fluid" alt="Performance Plot">
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('index_fund.index') }}" class="btn btn-primary">Run New Analysis</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

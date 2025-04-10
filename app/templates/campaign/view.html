@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <img src="{{ campaign.image_url }}" class="img-fluid rounded mb-4" alt="{{ campaign.title }}">
+            <h1>{{ campaign.title }}</h1>
+            <p class="text-muted">Created by {{ campaign.creator.username }} on {{ campaign.created_at.strftime('%B %d, %Y') }}</p>
+            
+            <div class="progress mb-4">
+                <div class="progress-bar" role="progressbar" 
+                     style="width: {{ (campaign.current_amount / campaign.goal_amount * 100)|round }}%">
+                    {{ (campaign.current_amount / campaign.goal_amount * 100)|round }}%
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Goal</h5>
+                            <p class="card-text">{{ campaign.goal_amount }} ETH</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Raised</h5>
+                            <p class="card-text">{{ campaign.current_amount }} ETH</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Ends</h5>
+                            <p class="card-text">{{ campaign.end_date.strftime('%B %d, %Y') }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>About this Campaign</h3>
+            <p>{{ campaign.description }}</p>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Support this Campaign</h3>
+                    {% if current_user.is_authenticated %}
+                        {% if campaign.end_date > now %}
+                            <form method="POST" action="{{ url_for('campaign.donate', campaign_id=campaign.id) }}">
+                                <div class="mb-3">
+                                    <label for="amount" class="form-label">Amount (ETH)</label>
+                                    <input type="number" class="form-control" id="amount" name="amount" 
+                                           min="0.01" step="0.01" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Donate Now</button>
+                            </form>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                This campaign has ended.
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            Please <a href="{{ url_for('auth.login') }}">login</a> to donate to this campaign.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h3 class="card-title">Recent Donations</h3>
+                    {% if donations %}
+                        <div class="list-group">
+                            {% for donation in donations %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ donation.donor.username }}</h6>
+                                    <small>{{ donation.created_at.strftime('%B %d, %Y') }}</small>
+                                </div>
+                                <p class="mb-1">{{ donation.amount }} ETH</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No donations yet. Be the first to support this campaign!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
