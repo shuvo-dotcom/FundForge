@@ -2,46 +2,116 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
+import time
+import requests
+from datetime import datetime, timedelta
 
 class SP100IndexFund:
     def __init__(self):
         self.data = None
         self.benchmark = None
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+    def get_stock_data(self, ticker, period='3mo'):
+        """Get stock data directly from Yahoo Finance API"""
+        try:
+            # Convert period to days
+            if period == '3mo':
+                days = 90
+            elif period == '6mo':
+                days = 180
+            elif period == '9mo':
+                days = 270
+            elif period == '1y':
+                days = 365
+            else:
+                days = 90
+
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+
+            # Format dates for Yahoo Finance
+            start_str = start_date.strftime('%Y-%m-%d')
+            end_str = end_date.strftime('%Y-%m-%d')
+
+            # Construct URL
+            url = f'https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={int(start_date.timestamp())}&period2={int(end_date.timestamp())}&interval=1d'
+
+            # Make request
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+
+            # Extract price data
+            timestamps = data['chart']['result'][0]['timestamp']
+            prices = data['chart']['result'][0]['indicators']['quote'][0]['close']
+
+            # Create DataFrame
+            df = pd.DataFrame({
+                'Close': prices
+            }, index=pd.to_datetime(timestamps, unit='s'))
+
+            return df['Close']
+
+        except Exception as e:
+            st.warning(f"Error fetching {ticker}: {str(e)}")
+            return None
 
     def download_data(self, period='3mo'):
-        """Download S&P 100 data"""
+        """Download S&P 100 data with improved error handling"""
         with st.spinner('Downloading S&P 100 data...'):
             try:
-                sp100 = pd.read_html('https://en.wikipedia.org/wiki/S%26P_100')[2]
+                # Get S&P 100 components
+                sp100_url = 'https://en.wikipedia.org/wiki/S%26P_100'
+                response = requests.get(sp100_url, headers=self.headers)
+                sp100 = pd.read_html(response.text)[2]
                 tickers = sp100['Symbol'].tolist()
-                
+
                 data = {}
                 progress_bar = st.progress(0)
+
+                # Download stock data
                 for i, ticker in enumerate(tickers):
                     try:
                         if ticker == 'BRK.B':
                             ticker = 'BRK-B'
-                        stock = yf.Ticker(ticker)
-                        hist = stock.history(period=period)
-                        if not hist.empty:
-                            data[ticker] = hist['Close']
+                        
+                        # Add delay between requests
+                        time.sleep(0.5)
+                        
+                        stock_data = self.get_stock_data(ticker, period)
+                        if stock_data is not None and not stock_data.empty:
+                            data[ticker] = stock_data
+                            
                     except Exception as e:
-                        st.warning(f"Error downloading {ticker}: {str(e)}")
+                        st.warning(f"Error processing {ticker}: {str(e)}")
                     finally:
                         progress_bar.progress((i + 1) / len(tickers))
-                
+
+                if not data:
+                    st.error("Failed to download any stock data")
+                    return None
+
                 self.data = pd.DataFrame(data)
-                
-                # Download benchmark
-                benchmark = yf.Ticker('^OEX')
-                self.benchmark = benchmark.history(period=period)['Close']
-                
+
+                # Download benchmark data
+                time.sleep(1)  # Wait before benchmark request
+                benchmark_data = self.get_stock_data('^OEX', period)
+                if benchmark_data is not None and not benchmark_data.empty:
+                    self.benchmark = benchmark_data
+                else:
+                    st.error("Failed to get benchmark data")
+                    return None
+
                 return self.data
+
             except Exception as e:
-                st.error(f"Error: {str(e)}")
+                st.error(f"Error in download_data: {str(e)}")
                 return None
 
     def optimize_portfolio(self, q=20):
