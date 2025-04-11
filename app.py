@@ -151,17 +151,18 @@ class SP100IndexFund:
         bounds = [(0, 1) for _ in range(n_stocks)]
 
         # Optimize
-        result = minimize(
-            objective,
-            x0,
-            method='SLSQP',
-            bounds=bounds,
-            constraints=[
-                {'type': 'eq', 'fun': constraint_sum},
-                {'type': 'eq', 'fun': constraint_num_stocks}
-            ],
-            options={'maxiter': 1000}
-        )
+        with st.spinner("Optimizing portfolio weights..."):
+            result = minimize(
+                objective,
+                x0,
+                method='SLSQP',
+                bounds=bounds,
+                constraints=[
+                    {'type': 'eq', 'fun': constraint_sum},
+                    {'type': 'eq', 'fun': constraint_num_stocks}
+                ],
+                options={'maxiter': 1000}
+            )
 
         # Convert results to dictionary
         weights = {}
@@ -171,29 +172,71 @@ class SP100IndexFund:
 
         return weights
 
-    def optimize_correlation(self, q=20):
-        """Simple correlation-based approach for comparison"""
-        if self.data is None or self.benchmark is None:
-            raise ValueError("Data not downloaded")
-
-        returns = self.data.pct_change().dropna()
+    def calculate_metrics(self, weights):
+        """Calculate performance metrics"""
+        returns = self.data[list(weights.keys())].pct_change().dropna()
         benchmark_returns = self.benchmark.pct_change().dropna()
-
-        # Calculate correlations
-        correlations = {}
-        for column in returns.columns:
-            correlation = returns[column].corr(benchmark_returns)
-            if not np.isnan(correlation):
-                correlations[column] = abs(correlation)
-
-        # Select top q stocks
-        sorted_stocks = sorted(correlations.items(), key=lambda x: x[1], reverse=True)[:q]
         
-        # Normalize weights
-        total_correlation = sum(corr for _, corr in sorted_stocks)
-        weights = {stock: corr/total_correlation for stock, corr in sorted_stocks}
+        # Calculate portfolio returns
+        portfolio_returns = pd.Series(0, index=returns.index)
+        for stock, weight in weights.items():
+            portfolio_returns += weight * returns[stock]
         
-        return weights
+        # Calculate metrics
+        correlation = portfolio_returns.corr(benchmark_returns)
+        tracking_error = np.std(portfolio_returns - benchmark_returns) * np.sqrt(252)
+        excess_return = (portfolio_returns.mean() - benchmark_returns.mean()) * 252
+        
+        return {
+            'correlation': correlation,
+            'tracking_error': tracking_error,
+            'excess_return': excess_return,
+            'portfolio_returns': portfolio_returns,
+            'benchmark_returns': benchmark_returns
+        }
+
+    def analyze_q_vs_correlation(self, q_range=range(10, 101, 10), period='3mo'):
+        """Analyze correlation for different values of q"""
+        correlations = []
+        q_values = []
+        
+        with st.spinner('Analyzing different portfolio sizes...'):
+            for q in q_range:
+                try:
+                    # Optimize portfolio for this q
+                    weights = self.optimize_portfolio(q)
+                    metrics = self.calculate_metrics(weights)
+                    correlations.append(metrics['correlation'])
+                    q_values.append(q)
+                    
+                    # Show progress
+                    st.write(f"q={q}: Correlation = {metrics['correlation']:.4f}")
+                    
+                except Exception as e:
+                    st.warning(f"Error at q={q}: {str(e)}")
+                    continue
+        
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(q_values, correlations, 'bo-', linewidth=2, markersize=8)
+        ax.set_xlabel('Number of Stocks (q)', fontsize=12)
+        ax.set_ylabel('Correlation with S&P 100', fontsize=12)
+        ax.set_title('Portfolio Size vs Correlation', fontsize=14)
+        ax.grid(True, linestyle='--', alpha=0.7)
+        
+        # Add annotations for min and max correlation
+        max_corr_idx = np.argmax(correlations)
+        min_corr_idx = np.argmin(correlations)
+        
+        ax.annotate(f'Max: {correlations[max_corr_idx]:.4f}',
+                    xy=(q_values[max_corr_idx], correlations[max_corr_idx]),
+                    xytext=(10, 10), textcoords='offset points')
+        
+        ax.annotate(f'Min: {correlations[min_corr_idx]:.4f}',
+                    xy=(q_values[min_corr_idx], correlations[min_corr_idx]),
+                    xytext=(10, -10), textcoords='offset points')
+        
+        return fig, correlations, q_values
 
 def main():
     st.set_page_config(page_title="S&P 100 Index Fund Optimization", layout="wide")
@@ -201,85 +244,90 @@ def main():
     st.title("S&P 100 Index Fund Optimization")
     st.markdown("""
     ### Project: Artificial Intelligence Driven Decision Making
-    This application implements two approaches for index fund optimization:
-    1. **Mathematical Optimization**: Using scipy's SLSQP optimizer
-    2. **Correlation-Based**: Simple statistical approach for comparison
+    This application implements portfolio optimization to track the S&P 100 index using fewer stocks.
     """)
     
     # Parameters
     st.sidebar.header("Parameters")
-    q = st.sidebar.slider("Number of Stocks (q)", 10, 100, 20)
     period = st.sidebar.selectbox("Analysis Period", ['3mo', '6mo', '9mo', '1y'])
     
-    if st.button("Run Analysis"):
-        try:
-            index_fund = SP100IndexFund()
-            
-            # Download data
-            index_fund.download_data(period=period)
-            
-            # Run both methods
-            with st.spinner("Running mathematical optimization..."):
-                opt_weights = index_fund.optimize_portfolio(q)
-            
-            with st.spinner("Running correlation-based approach..."):
-                corr_weights = index_fund.optimize_correlation(q)
-            
-            # Display results
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Optimization Results")
-                opt_df = pd.DataFrame(opt_weights.items(), 
-                                    columns=['Stock', 'Weight'])
-                opt_df['Weight'] = opt_df['Weight'].apply(lambda x: f"{x*100:.2f}%")
-                st.dataframe(opt_df)
-            
-            with col2:
-                st.subheader("Correlation-Based Results")
-                corr_df = pd.DataFrame(corr_weights.items(), 
-                                     columns=['Stock', 'Weight'])
-                corr_df['Weight'] = corr_df['Weight'].apply(lambda x: f"{x*100:.2f}%")
-                st.dataframe(corr_df)
-            
-            # Performance comparison
-            st.subheader("Performance Comparison")
-            returns = index_fund.data.pct_change()
-            benchmark_returns = index_fund.benchmark.pct_change()
-            
-            # Calculate portfolio returns
-            opt_returns = sum(returns[stock] * weight 
-                            for stock, weight in opt_weights.items())
-            corr_returns = sum(returns[stock] * weight 
-                             for stock, weight in corr_weights.items())
-            
-            # Calculate metrics
-            metrics = pd.DataFrame({
-                'Optimization': {
-                    'Correlation': opt_returns.corr(benchmark_returns),
-                    'Tracking Error': np.std(opt_returns - benchmark_returns)
-                },
-                'Correlation-Based': {
-                    'Correlation': corr_returns.corr(benchmark_returns),
-                    'Tracking Error': np.std(corr_returns - benchmark_returns)
-                }
-            })
-            
-            st.dataframe(metrics)
-            
-            # Plot cumulative returns
-            fig, ax = plt.subplots(figsize=(12, 6))
-            (1 + opt_returns).cumprod().plot(label='Optimized Portfolio', ax=ax)
-            (1 + corr_returns).cumprod().plot(label='Correlation Portfolio', ax=ax)
-            (1 + benchmark_returns).cumprod().plot(label='S&P 100', ax=ax)
-            plt.title('Cumulative Returns Comparison')
-            plt.xlabel('Date')
-            plt.ylabel('Cumulative Return')
-            plt.legend()
-            st.pyplot(fig)
-            
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+    # Add tabs for different analyses
+    tab1, tab2 = st.tabs(["Single Portfolio Analysis", "Q vs Correlation Analysis"])
+    
+    with tab1:
+        q = st.slider("Number of Stocks (q)", 10, 100, 20)
+        
+        if st.button("Run Single Analysis"):
+            try:
+                index_fund = SP100IndexFund()
+                index_fund.download_data(period=period)
+                weights = index_fund.optimize_portfolio(q)
+                metrics = index_fund.calculate_metrics(weights)
+                
+                # Display results
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.subheader("Selected Stocks and Weights")
+                    weights_df = pd.DataFrame(list(weights.items()), columns=['Stock', 'Weight'])
+                    weights_df['Weight'] = weights_df['Weight'].apply(lambda x: f"{x*100:.2f}%")
+                    st.dataframe(weights_df)
+                
+                with col2:
+                    st.subheader("Performance Metrics")
+                    metrics_df = pd.DataFrame({
+                        'Metric': ['Correlation', 'Tracking Error (%)', 'Excess Return (%)'],
+                        'Value': [
+                            f"{metrics['correlation']:.4f}",
+                            f"{metrics['tracking_error']:.2f}",
+                            f"{metrics['excess_return']:.2f}"
+                        ]
+                    })
+                    st.dataframe(metrics_df)
+                
+                # Plot performance
+                st.subheader("Performance Comparison")
+                fig, ax = plt.subplots(figsize=(12, 6))
+                (1 + metrics['portfolio_returns']).cumprod().plot(label='Optimized Portfolio', ax=ax)
+                (1 + metrics['benchmark_returns']).cumprod().plot(label='S&P 100', ax=ax)
+                plt.title('Cumulative Returns Comparison')
+                plt.xlabel('Date')
+                plt.ylabel('Cumulative Return')
+                plt.legend()
+                st.pyplot(fig)
+                
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
+    
+    with tab2:
+        if st.button("Run Q vs Correlation Analysis"):
+            try:
+                index_fund = SP100IndexFund()
+                index_fund.download_data(period=period)
+                
+                # Run analysis for different q values
+                fig, correlations, q_values = index_fund.analyze_q_vs_correlation(
+                    q_range=range(10, 101, 10),
+                    period=period
+                )
+                
+                # Display the plot
+                st.pyplot(fig)
+                
+                # Display summary statistics
+                st.subheader("Summary Statistics")
+                summary_df = pd.DataFrame({
+                    'Metric': ['Maximum Correlation', 'Minimum Correlation', 'Average Correlation'],
+                    'Value': [
+                        f"{max(correlations):.4f} (q={q_values[np.argmax(correlations)]})",
+                        f"{min(correlations):.4f} (q={q_values[np.argmin(correlations)]})",
+                        f"{np.mean(correlations):.4f}"
+                    ]
+                })
+                st.dataframe(summary_df)
+                
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
     main() 
